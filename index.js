@@ -25,7 +25,7 @@ function Proxy(host, port, user, pass)
         this.user = user
         this.pass = pass
     }
-    this.clients = []
+    this.client_ids = []
     this.isEmpty = false
 }
 
@@ -84,6 +84,7 @@ if (config.altening) {
     });
 }
 
+//i dont like this funtion....
 function run(email, password, int) {
     let combo = [email, password]
     if(!proxies[0])
