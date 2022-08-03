@@ -6,8 +6,60 @@ const ProxyAgent = require('proxy-agent')
 
 const config = require("./config.json")
 const fs = require("fs");
+const request = require('request');
+const Agent = require('socks5-http-client/lib/Agent');
+
+
 const proxy_list = fs.readFileSync(`./proxies.txt`, 'utf-8')
+
 let proxies = proxy_list.split(/\r?\n/)
+
+//Proxy class
+
+function Proxy(host, port, user, pass)
+{
+    this.host = host
+    this.port = port
+    if(user != null)
+    {
+        this.user = user
+        this.pass = pass
+    }
+    this.clients = []
+    this.isEmpty = false
+}
+
+var checkProxy = function (ip, port, url) {
+
+    var proxyRequest = request.defaults({
+        agentClass: Agent,
+        agentOptions: {
+            socksHost: ip,
+            socksPort: port,
+            //socksUsername: user,
+            //socksPassword: pass,
+        }
+    });
+
+    proxyRequest({ url: url, timeout: 120000 }, function (err, res) {
+        var testText = 'content=" "';
+        if (err) {
+            return false;
+        } else if (res.statusCode != 200) {
+            return false;
+        } else if (!res.body) {
+            return false;
+        } else {
+            return true
+        }
+
+    });
+}
+
+function updateProxies()
+{
+    
+}
 
 if (config.altening) {
     alts = []
@@ -34,11 +86,12 @@ if (config.altening) {
 
 function run(email, password, int) {
     let combo = [email, password]
-    if(!proxies[0]){
-        return console.log("Not logging in, out of proxies.")
+    if(!proxies[0])
+    {
+        return console.log("Not logging in, out of proxies.");
     }
-    let proxy = proxies.pop()
-    let proxycombo = proxy.split(":")
+    let proxy = proxies.pop();
+    let proxycombo = proxy.split(":");
     console.log(proxycombo)
     console.log("STARTING")
     const client = mc.createClient({
@@ -47,6 +100,7 @@ function run(email, password, int) {
                 proxy: {
                     host: proxycombo[0],
                     port: parseInt(proxycombo[1]),
+                    
                     type: config.socks_version
                 },
                 command: 'connect',
@@ -67,6 +121,7 @@ function run(email, password, int) {
         agent: new ProxyAgent({protocol: config.socks_version2 + ":", host: proxycombo[0], port: proxycombo[1]}),
         username: email,
         password: password,
+        auth: config.auth,
         version: config.version
     })
     client.on('packet', function (packet) {

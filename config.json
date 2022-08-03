@@ -1,5 +1,5 @@
 {
-  "ip": "connect.2b2t.org",
+  "ip": "wolfxmc.org",
   "port": 25565,
   "version": "1.12.2",
   "loginintervalms": 1000,
@@ -8,7 +8,8 @@
   "altening_token": "",
   "socks_version": 5,
   "socks_version2": "socks5",
-  "maxattemptsperproxy": 5,
+  "maxattemptsperproxy": 2,
+  "auth" : "offline,
 
   "physics": false,
   "log_packets": false
