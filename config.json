@@ -1,4 +1,21 @@
 {
+  "mode" :
+  {
+    "spam" : false,
+    "mass_register" : 
+    {
+      "enabled" : true,
+
+      "reg_msg" : "/reg Mana_on_top123 Mana_on_top123",
+      "max_on_ip" : 2
+    },
+    "pay" : 
+    {
+      "enabled" : true,
+      "pay_msg" : "/pay JewishBanker 1000"
+    }
+
+  },
   "ip": "wolfxmc.org",
   "port": 25565,
   "version": "1.12.2",
@@ -6,10 +23,35 @@
 
   "altening": false,
   "altening_token": "",
+
   "socks_version": 5,
   "socks_version2": "socks5",
   "maxattemptsperproxy": 2,
-  "auth" : "offline,
+  "auth" : "offline",
+  "generate-offlines" : 
+  {
+    "enabled" : true,
+    "gen_fn" : "namesdb.txt",
+    "save" : "true"
+    
+  },
+
+  "proxy_api" :
+  {
+    "enabled" : true,
+    "url" : "http://api.sgxz.cn:12080/getip?token=7ad4ad8b6cc643b5490ed06d0d6453fb&protocol=SOCKS&num=200&result_format=JSON&separator=%5Cn&ip_dedup=1&time_avail=1",
+    "min" : 200,
+    "max" : 300
+  },
+  "reconnect" :
+  {
+    "enabled" : true,
+    "times" : 5,
+    "delay" : 3200
+  },
+  
+
+
 
   "physics": false,
   "log_packets": false
