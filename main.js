@@ -29,15 +29,23 @@ var names = []
 
 var used_names = []
 
+var proxy_check_targtime = 0
+
 dateObj = new Date();
 function GetTime()
 {
     return dateObj.getTime();
 }
 
+function RandInt(min, max)
+{
+    return Math.floor(Math.random() * max) - min;
+}
+
 function GenName()
 {
-
+    name_base = namesdb[RandInt(0, namesdb.length() - 1)];
+    return name_base + RandInt(0, 999999).toString()
 }
 
 //Proxy class
@@ -51,23 +59,25 @@ function Proxy(host, port, user, pass)
         this.user = user
         this.pass = pass
     }
-
+    //Number of connections
+    this.connections = 0
     //Amount of times registered
     this.reg_amount = 0
     this.isEmpty = false
 }
 //Wrapper for client
 
-function MCClient(user, pw, proxy)
+function MCClient(name, pw, proxy)
 {
     this.disconnected = false;
     this.destroyClient = false;
     this.targetReconTime = 0;
+    this.name = name;
 
     this.client = mc.createClient({
         host: config.ip,           // optional
         port: config.port,         // optional
-        username: user,
+        username: name,
         password: pw,
         auth: config.auth, // optional; by default uses offline mode, if using a microsoft account, set to 'microsoft'
         version: config.version,
@@ -123,6 +133,7 @@ function MCClient(user, pw, proxy)
             console.info('connected')
             this.sendChat(config.mode.mass_register.reg_msg);
             this.sendChat(config.mode.pay.pay_msg);
+            this.proxy.connections++;
             this.proxy.reg_amount++;
             this.destroyClient = true;
 
@@ -155,8 +166,9 @@ function MCClient(user, pw, proxy)
         }
         if(this.destroyClient)
         {
+            
             this.client.end("aaa");
-
+            this.proxy.connections--;
         }
     }
 
@@ -191,8 +203,25 @@ function CheckProxy(ip, port) {
         });
 }
 
+function GetValidProxy()
+{
+    Object.keys(proxies).forEach(function(k)
+    {
+        if(proxies[k].reg_amount < config.max_on_ip)
+        {
+            if(proxies[k].connections < config.max_accs_per_proxy)
+            {
+                return proxies[k]
+            }
+        }
+        
+        
+    })
+}
+
 function UpdateProxies()
 {
+
     Object.keys(proxies).forEach(function(k)
     {
         //If used more than twice
@@ -203,25 +232,41 @@ function UpdateProxies()
                 delete proxies[k]
             }
         }
+        
         //If proxy is invalid
-        else if(!CheckProxy(proxies[k].ip, proxies[k].port))
+        else if(proxy_check_targtime <= GetTime())
         {
-            
-            delete proxies[k];
+            if(!CheckProxy(proxies[k].ip, proxies[k].port))
+            {
+                
+                delete proxies[k];
 
+            }
         }
+        
 
     })
+    if(proxy_check_targtime <= GetTime())
+    {
+        proxy_check_targtime= GetTime() + config.proxy_api.check_delay;
+    }
     
     //If not enough proxies
     let active_proxies = Object.keys(proxies).length();
     while(active_proxies < config.proxy_api.min)
     {
-        
+        p = GetProxies(200);
+        for(let i in p)
+        {
+            if(CheckProxy(p[i]["host"], p[i]["port"]))
+            {
+                proxies[p[i]["host"]] = new Proxy(p[i]["host"], p[i]["port"])
+            }
+        }
     }
 }
 
-
+/*
 
 if (config.altening) {
     alts = []
@@ -245,49 +290,32 @@ if (config.altening) {
         }, config.loginintervalms)
     });
 }
-function UpdateClients(clients)
+*/
+function UpdateClients()
 {
-
+    Object.keys(clients).forEach(function(k)
+    {
+        if(clients.destroyClient)
+        {
+            delete clients[k]
+        }
+    })
+    if(clients.length < config.num_accounts.min)
+    {
+        newName = GenName()
+        
+        clients[newName] = new MCClient(newName, config.mass_register.password, GetValidProxy())
+    }
+    
 }
 
 
 
 function main()
 {
-    
-}
-
-//i dont like this funtion....
-function run(userid, password) {
-    let combo = [email, password]
-    if(!proxies[0])
+    while(1)
     {
-        return console.log("Not logging in, out of proxies.");
+        UpdateClients()
+        UpdateProxies()
     }
-    let proxy = proxies.pop();
-    let proxycombo = proxy.split(":");
-    console.log(proxycombo)
-    console.log("STARTING")
-
-
-    client.on('error', function (error){
-        if(!error.toString().includes("Invalid credentials")){
-            if(int){
-                run(combo[0], combo[1], int)
-            } else {
-                run(combo[0], combo[1], 1)
-            }
-        } else {
-            if(int){
-                if(int < config.maxattemptsperproxy){
-                    run(combo[0], combo[1], int+1)
-                } else {
-                    return console.log("max attempts reached")
-                }
-            } else {
-                run(combo[0], combo[1], int+1)
-            }
-        }
-        console.log(error.toString())
-    })
 }
