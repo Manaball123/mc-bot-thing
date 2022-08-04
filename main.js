@@ -271,9 +271,13 @@ async function GetProxies(num, time_avail, ip_dedup)
             
     })
 
+
     print("API server responded with ")
     print(res)
     print(res.data)
+    print("Typeof res: ")
+    print(typeof(res))
+    
     var p = res.data.data
     for(let i = 0; i < p.length; i++)
     {
@@ -446,12 +450,12 @@ async function UpdateClients()
 }
 
 ProxyUpdateTimer = new Timer(5000)
-ClientUpdateTimer = new Timer(500)
+ClientUpdateTimer = new Timer(5000)
 
 async function main()
 {
     print("Starting main function")
-    await GetProxies(10,1,0)
+    //await GetProxies(10,1,0)
     while(1)
     {
         if(ProxyUpdateTimer.Check())
