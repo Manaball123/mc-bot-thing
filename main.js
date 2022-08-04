@@ -124,6 +124,7 @@ function MCClient(name, pw, proxy)
     this.msgQueue = []
 
     //Initialize the MC client
+    print("Creating new client with name " + this.name)
     this.client = mc.createClient({
         host: config.ip,           // optional
         port: config.port,         // optional
@@ -155,6 +156,7 @@ function MCClient(name, pw, proxy)
             })
        }
     })
+    print(this.name + " Created.")
     this.SendMessage = function()
     {
         if(this.msgQueue.length > 0)
@@ -210,6 +212,7 @@ function MCClient(name, pw, proxy)
     //Run when client instance is created
     this.Run = function()
     {
+        print("Initializing client " + name)
         this.QueueMessage(config.mode.mass_register.reg_msg);
         this.QueueMessage(config.mode.pay.pay_msg);
         this.ChatTimer.Reset()
@@ -237,7 +240,7 @@ function MCClient(name, pw, proxy)
         })
         //On client connect
         this.client.on('connect', function () {
-            console.info('connected')
+            print("Client with name " + this.name + " connected.")
             
             this.disconnected = false
             //Update proxy counters
