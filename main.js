@@ -307,7 +307,7 @@ async function GetProxies(num, time_avail, ip_dedup)
     print(res)
     print(res.data)
     print("Typeof res: ")
-    print(typeof(res))
+    //print(typeof(res))
     
     var p = res.data.data
     for(let i = 0; i < p.length; i++)
@@ -515,23 +515,24 @@ ClientUpdateTimer = new Timer(5000)
 async function main()
 {
     print("Starting main function")
-    //await GetProxies(10,1,0)
+    await GetProxies(10,1,0)
     while(1)
     {
         if(ProxyUpdateTimer.Check())
         {
             ProxyUpdateTimer.Reset()
-            UpdateProxies();
+            await UpdateProxies();
         }
         if(ClientUpdateTimer.Check())
         {
             ClientUpdateTimer.Reset()
-            UpdateClients();
+            await UpdateClients();
         }
 
         
     }
 }
+//GetProxies(10,1,0)
 
 
 main()
