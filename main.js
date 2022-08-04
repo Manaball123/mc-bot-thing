@@ -15,7 +15,7 @@ require("./modules/utils")
 require("./modules/proxylib")
 require("./modules/client")
 
-const proxy_list = fs.readFileSync(`./proxies.txt`, 'utf-8')
+//const proxy_list = fs.readFileSync(`./proxies.txt`, 'utf-8')
 
 
 
@@ -26,26 +26,6 @@ const api_delay = 1000
 
 var proxiesList = new ProxiesList()
 var clientsList = new MCClientsList(proxiesList)
-
-
-var names = []
-
-var used_names = []
-
-var proxy_check_targtime = 0
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -151,7 +131,6 @@ async function main()
         
     }
 }
-//GetProxies(10,1,0)
 
 
 main()

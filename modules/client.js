@@ -6,7 +6,8 @@ const socks = require('socks').SocksClient
 const ProxyAgent = require('proxy-agent')
 const config = require("../config.json")
 const fs = require("fs")
-const namesdb = fs.readFileSync(config.generate_offlines.gen_fn, "utf-8")
+const namesraw = fs.readFileSync(config.generate_offlines.gen_fn, "utf-8")
+const namesdb = namesraw.split(/\r?\n/)
 
 require("./utils")
 require("./proxylib")
