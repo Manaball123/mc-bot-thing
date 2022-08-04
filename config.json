@@ -33,7 +33,7 @@
   "generate_offlines" : 
   {
     "enabled" : true,
-    "gen_fn" : "namesdb.txt",
+    "gen_fn" : "./namesdb.txt",
     "save" : "true"
     
   },
