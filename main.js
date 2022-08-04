@@ -15,11 +15,9 @@ const proxy_list = fs.readFileSync(`./proxies.txt`, 'utf-8')
 
 const namesdb = fs.readFileSync(config.generate_offlines.gen_fn, "utf-8")
 
-var api_delay = 1000
+var api_delay = 10000
 var proxies_list = proxy_list.split(/\r?\n/)
 
-var proxies_ctr = 0
-var active_proxies = 0
 
 var clients_ctr = 0
 //hashmap abuser
@@ -33,11 +31,15 @@ var used_names = []
 
 var proxy_check_targtime = 0
 
-dateObj = new Date();
 
+function print(a)
+{
+    console.log(a)
+}
 
 function GetTime()
-{
+{ 
+    var dateObj = new Date();
     return dateObj.getTime();
 }
 
@@ -60,12 +62,13 @@ function Timer(interval)
     
     this.Check = function()
     {
-        if(GetTime() < this.targtime)
+        if(GetTime() >= this.targtime)
         {
             
             return true;
         }
-        else{
+        else
+        {
             return false;
         }
     }
@@ -77,7 +80,7 @@ function Timer(interval)
 
 
 ProxyCheckTimer = new Timer(config.proxy_api.check_delay)
-ProxyAPITimer = new Timer(1024)
+ProxyAPITimer = new Timer(api_delay)
 
 //Proxy class
 
@@ -96,7 +99,7 @@ function Proxy(cfg)
     this.connections = 0
     //Amount of times registered
     this.reg_amount = 0
-    this.isEmpty = false
+    //this.isVacant = true
 }
 //Wrapper for client
 
@@ -106,6 +109,9 @@ function MCClient(name, pw, proxy)
     this.destroyClient = false;
     this.targetReconTime = 0;
     this.name = name;
+    this.ChatTimer = new Timer(config.chat_cooldown);
+    this.ReconnectTimer = new Timer(config.reconnect.delay)
+    this.msgQueue = []
 
     this.client = mc.createClient({
         host: config.ip,           // optional
@@ -116,6 +122,7 @@ function MCClient(name, pw, proxy)
         version: config.version,
         agent: new ProxyAgent({protocol: config.socks_version2 + ":", host: proxy.host, port: proxy.port}),
         connect: client => {
+        
             socks.createConnection({
                 proxy: {
                     host: proxy.host,
@@ -129,7 +136,7 @@ function MCClient(name, pw, proxy)
                 }
             }, (err, info) => {
                 if (err) {
-                    console.log(err)
+                    print(err)
                 }
 
                 client.setSocket(info.socket)
@@ -137,45 +144,80 @@ function MCClient(name, pw, proxy)
             })
        }
     })
-    this.sendChat(msg)
+    this.SendMessage = function()
     {
-        this.client.write("chat", 
+        if(this.msgQueue.length > 0)
         {
-            "message" : msg
-        })
+            var msg = this.msgQueue.shift();
+            this.client.write("chat", 
+            {
+                "message" : msg
+            })
+            
+        }
+        
     }
-    this.reconnect()
+
+    this.QueueMessage = function(msg)
     {
-        if(!this.disconnected)
+        this.msgQueue.push(msg)
+    }
+    this.Reconnect = function()
+    {
+        if(this.disconnected)
         {
             this.client.connect(config.port, config.host);
         }
         
     }
+    this.MaintainClient = function()
+    {
+        if(this.ReconnectTimer.Check())
+        {
+            this.ReconnectTimer.Reset()
+            this.Reconnect()
+        }
+    }
     this.Run = function()
     {
+        this.QueueMessage(config.mode.mass_register.reg_msg);
+        this.QueueMessage(config.mode.pay.pay_msg);
+        this.ChatTimer.Reset()
+        //I hope this is called very frequently
+        //If not im fucked lol
         this.client.on('packet', function (packet) {
             if (config.log_packets) {
-                console.log(packet)
+                print(packet)
                 if (packet.data) {
-                    console.log(packet.data.toString())
+                    print(packet.data.toString())
                 }
+            }
+        //Message spammer
+            if(this.ChatTimer.Check())
+            {
+                this.ChatTimer.Reset()
+                this.SendMessage()
+            }
+
+        //Disconnect if no chat tasks left
+            if(this.msgQueue.length == 0)
+            {
+                this.destroyClient = true
             }
         })
         this.client.on('connect', function () {
             console.info('connected')
-            this.sendChat(config.mode.mass_register.reg_msg);
-            this.sendChat(config.mode.pay.pay_msg);
+            
             this.proxy.connections++;
             this.proxy.reg_amount++;
             this.destroyClient = true;
 
         })
         this.client.on('disconnect', function (packet) {
-            console.log('disconnected: ' + packet.reason)
+            print('disconnected: ' + packet.reason)
         })
         this.client.on('end', function () {
-            console.log('Connection lost')
+            print('Connection lost')
             this.disconnected = true
             if(!this.destroyClient)
             {
@@ -185,24 +227,9 @@ function MCClient(name, pw, proxy)
             
         })
         this.client.on('message', function (packet) {
-            console.log(packet.toString())
+            print(packet.toString())
         })
-        while(!this.destroyClient)
-        {
-            if(this.disconnected)
-            {
-                if(GetTime() >= this.targetReconTime)
-                {
-                    this.reconnect()
-                }
-            }
-        }
-        if(this.destroyClient)
-        {
-            
-            this.client.end("aaa");
-            this.proxy.connections--;
-        }
+        
     }
 
     
@@ -227,10 +254,9 @@ function GetQueryString(base, params)
 //should make it count based but am too lazy
 async function GetProxies(num, time_avail, ip_dedup)
 {
-    console.log("Requesting more proxies...")
-    let data = {}
-    axios
-    .get(config.proxy_api.url,
+    print("Requesting more proxies...")
+
+    let res = await axios.get(config.proxy_api.url,
         {
             params : 
             
@@ -244,42 +270,33 @@ async function GetProxies(num, time_avail, ip_dedup)
             }
             
     })
-    .then(function (response) {
-        console.log("resp: ")
-        console.log(response);
-        proxies_req_data = response.data.data
-      })
-      .catch(function (error) {
-        console.log(error);
-      })
-      .then(function () {
+
+    print("API server responded with ")
+    print(res)
+    print(res.data)
+    var p = res.data.data
+    for(let i = 0; i < p.length; i++)
+    {
+        //print(p[i])
+        //print(proxies)
         
-      });  
-      
+        proxies[p[i]["ip"]] = new Proxy({
+            host : p[i]["ip"],  
+            port : p[i]["port"],
+            ttl : p[i]["ttl"]
+        })
+        
+            
+    }
+    print("Proxies after request: ")
+    print(proxies)
+    
     
 }
 
-function GetProxiesSynced(num,time_avail,ip_dedup)
-{
 
-    GetProxies(num, time_avail, ip_dedup)
-    while(proxies_req_data == undefined)
-    {
-        
-    }
 
-    for(let i in proxies_req_data)
-    {
 
-        proxies[proxies_req_data[i]["host"]] = new Proxy({
-            host : proxies_req_data[i]["host"], 
-            port : proxies_req_data[i]["port"],
-            ttl : proxies_req_data[i]["ttl"]
-        })
-        
-    }
-    proxies_req_data = undefined
-}
 function CheckProxy(ip, port) {
 
    axios
@@ -302,23 +319,31 @@ function CheckProxy(ip, port) {
 }
 function GetValidProxy()
 {
-    Object.keys(proxies).forEach(function(k)
+    //(proxies)
+    keys = Object.keys(proxies)
+    for(let i = 0; i < keys.length; i++)
     {
-        if(proxies[k].reg_amount < config.max_on_ip)
+        let k = keys[i]
+        if(proxies[k].reg_amount < config.mode.mass_register.max_on_ip)
         {
+            //print('hji')
             if(proxies[k].connections < config.max_accs_per_proxy)
             {
+                //print('helo')
                 return proxies[k]
             }
         }
-        
-        
-    })
+        else
+        {
+            delete proxies[k]
+        }
+    }
+
     //If no proxies are available
     return null
 }
 
-function UpdateProxies()
+async function UpdateProxies()
 {
 
     if(ProxyCheckTimer.Check())
@@ -329,20 +354,23 @@ function UpdateProxies()
             //If surpassed alive time
             if(proxies[k].termination_est <= GetTime())
             {
+                //print(k + "deleted")
                 delete proxies[k];
             }
 
             //If used more than twice
-            if(config.mode.mass_register.enabled)
+            else if(config.mode.mass_register.enabled)
             {
-                if(config.mode.mass_register.max_on_ip >= proxies[k].reg_amount)
+                if(config.mode.mass_register.max_on_ip <= proxies[k].reg_amount)
                 {
+                    //print(k + "deleted")
                     delete proxies[k]
                 }
             }
             
             //Edge case prob dont have to fix but
             //if proxy is invalid
+            /*
             else if(proxy_check_targtime <= GetTime())
             {
                 if(!CheckProxy(proxies[k].ip, proxies[k].port))
@@ -352,7 +380,7 @@ function UpdateProxies()
 
                 }
             }
-            
+            */
 
         })
     }
@@ -363,23 +391,30 @@ function UpdateProxies()
     let active_proxies = Object.keys(proxies).length;
     if(active_proxies < config.proxy_api.min)
     {
+        print("Current number of proxies is " + active_proxies + " which is less than the minimum amount of " + config.proxy_api.min.toString())
         if(ProxyAPITimer.Check())
         {
             ProxyAPITimer.Reset()
-            console.log("Current number of proxies is " + active_proxies + " which is less than the minimum amount of " + config.proxy_api.min.toString())
-            p = GetProxies(100,1,1);
+            print("Calling GetProxies")
+            await GetProxies(100,1,1);
+            print("Finished requesting new proxies.")
 
+        }
+        else
+        {
+            print("Request on cooldown. The last request could still be unfinished.")
         }
         
     }
 }
 
 
-function UpdateClients()
+async function UpdateClients()
 {
     Object.keys(clients).forEach(function(k)
     {
-        if(clients.destroyClient)
+        clients[k].MaintainClient()
+        if(clients[k].destroyClient)
         {
             delete clients[k]
         }
@@ -388,20 +423,21 @@ function UpdateClients()
     if(active_clients < config.num_accounts.min)
     {
         let clients_to_gen = config.num_accounts.min - active_clients
-        console.log("Current number of clients is " + active_clients + " which is less than the minimum amount of " + config.num_accounts.min.toString())
+        print("Current number of clients is " + active_clients + " which is less than the minimum amount of " + config.num_accounts.min.toString())
         
         if(GetValidProxy() != null)
         {
-            console.log("Generating " + clients_to_gen.toString() + " clients...")
+            print("Generating " + clients_to_gen.toString() + " clients...")
             for(let i = 0; i < clients_to_gen; i++)
             {
                 let newName = GenName()
                 clients[newName] = new MCClient(newName, undefined, GetValidProxy())
+                clients[newName].Run()
             }
         }
         else
         {
-            console.log("Insufficient amount of proxies.")
+            print("Failed to generate clients. Insufficient amount of proxies.")
         }
         
         
@@ -409,30 +445,31 @@ function UpdateClients()
     
 }
 
-ProxyUpdateTimer = new Timer(1000)
-ClientUpdateTimer = new Timer(1000)
+ProxyUpdateTimer = new Timer(5000)
+ClientUpdateTimer = new Timer(500)
 
-function main()
+async function main()
 {
-    console.log("Starting main function")
+    print("Starting main function")
+    await GetProxies(10,1,0)
     while(1)
     {
         if(ProxyUpdateTimer.Check())
         {
             ProxyUpdateTimer.Reset()
-            UpdateProxies()
+            UpdateProxies();
         }
         if(ClientUpdateTimer.Check())
         {
             ClientUpdateTimer.Reset()
-            UpdateClients()
+            UpdateClients();
         }
+
         
     }
 }
-var p = {}
-p = GetProxiesSynced(1,1,0)
-console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
-console.log(p)
-//main()
-//
+
+
+main()
+
+

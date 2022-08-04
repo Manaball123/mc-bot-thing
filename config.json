@@ -28,6 +28,7 @@
   "socks_version2": "socks5",
   "max_accs_per_proxy" : 2,
   "maxattemptsperproxy": 2,
+  "chat_cooldown" : 500,
   "auth" : "offline",
   "generate_offlines" : 
   {
@@ -41,7 +42,7 @@
   {
     "enabled" : true,
     "url" : "http://api.sgxz.cn:12080/getip",
-    "token" : "7ad4ad8b6cc643b5490ed06d0d6453fb",
+    "token" : "d4297ad34d2c4c04757d28d802859ea1",
     "min" : 200,
     "max" : 300,
     "check_delay" : 1024
