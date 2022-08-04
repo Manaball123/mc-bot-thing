@@ -172,12 +172,15 @@ export function MCClient(name, pw, proxy)
         })
         
     }
-
-    
     
     
 }
 
+
+export function MCClientList()
+{
+    
+}
 
 
 

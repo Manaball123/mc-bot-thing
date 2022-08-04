@@ -74,41 +74,8 @@ async function GetProxies(num, time_avail, ip_dedup)
 {
     print("Requesting more proxies...")
 
-    let res = await axios.get(config.proxy_api.url,
-        {
-            params : 
-            {
-                'token': config.proxy_api.token,
-                'num': num,
-                'protocol': "SOCKS5",
-                'time_avail': time_avail,
-                'result_format': 'JSON',
-                'ip_dedup': (ip_dedup ? 1 : 0)
-            }
-            
-    })
-
-
-    print("API server responded with ")
-    print(res)
-    print(res.data)
-    print("Typeof res: ")
-    print(typeof res)
     
-    var p = res.data.data
-    for(let i = 0; i < p.length; i++)
-    {
-        //print(p[i])
-        //print(proxies)
-        
-        proxies[p[i]["ip"]] = new Proxy({
-            host : p[i]["ip"],  
-            port : p[i]["port"],
-            ttl : p[i]["ttl"]
-        })
-        
-            
-    }
+    
     print("Proxies after request: ")
     print(proxies)
     
@@ -135,50 +102,11 @@ function CheckProxy(ip, port) {
     }
     return false
   })
-  
-
 }
-//Returns a valid proxy 
-//Returns nothing if none is found
-function GetValidProxy()
-{
-    //(proxies)
-    keys = Object.keys(proxies)
-    //Iterate through all proxies
-    for(let i = 0; i < keys.length; i++)
-    {
-        let k = keys[i]
 
 
-        //If surpassed alive time
-        if(proxies[k].AliveTimer.Check())
-        {
-        
-            delete proxies[k];
-        }
-        else
-        {
-            //If proxy isn't used for registeration on enough accounts
-            if(proxies[k].reg_amount < config.mode.mass_register.max_on_ip)
-            {
-                //If proxy can still have more connections
-                if(proxies[k].connections < config.max_accs_per_proxy)
-                {
-                    
-                    return proxies[k]
-                }
-            }
-            else
-            {
-                delete proxies[k]
-            }
-        }
-        
-    }
 
-    //If no proxies are available
-    return null
-}
+
 
 async function UpdateProxies()
 {
@@ -186,41 +114,7 @@ async function UpdateProxies()
     if(ProxyCheckTimer.Check())
     {
         ProxyCheckTimer.Reset()
-        Object.keys(proxies).forEach(function(k)
-        {
-            //If surpassed alive time
-            if(proxies[k].AliveTimer.Check())
-            {
 
-                delete proxies[k];
-            }
-
-            //If used more than max register limit
-            else if(config.mode.mass_register.enabled)
-            {
-
-                if(config.mode.mass_register.max_on_ip <= proxies[k].reg_amount)
-                {
-                    //print(k + "deleted")
-                    delete proxies[k]
-                }
-            }
-            
-            //Edge case prob dont have to fix but
-            //if proxy is invalid
-            /*
-            else if(proxy_check_targtime <= GetTime())
-            {
-                if(!CheckProxy(proxies[k].ip, proxies[k].port))
-                {
-                    
-                    delete proxies[k];
-
-                }
-            }
-            */
-
-        })
     }
     
 

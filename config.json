@@ -1,21 +1,20 @@
 {
-  "mode" :
+
+  "spam" : false,
+  "mass_register" : 
   {
-    "spam" : false,
-    "mass_register" : 
-    {
-      "enabled" : true,
+    "enabled" : true,
       
-      "reg_msg" : "/reg Mana_on_top123 Mana_on_top123",
-      "max_on_ip" : 2
+    "reg_msg" : "/reg Mana_on_top123 Mana_on_top123",
+    "max_per_ip" : 2
     },
     "pay" : 
     {
       "enabled" : true,
       "pay_msg" : "/pay JewishBanker 1000"
-    }
+    },
 
-  },
+  
   "ip": "wolfxmc.org",
   "port": 25565,
   "version": "1.12.2",

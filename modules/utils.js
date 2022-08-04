@@ -20,7 +20,7 @@ export function GetTime()
 }
 
 
- //Timer class
+//Timer class
 export function Timer(interval)
 {
     this.interval = interval
