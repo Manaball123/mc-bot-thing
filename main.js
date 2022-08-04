@@ -7,24 +7,26 @@ const fs = require("fs");
 const https = require('https');
 const axios = require('axios').default;
 const url = require('node:url');
-const { rawListeners } = require("process");
+const { Timer } = require("./modules/utils");
+const { ProxiesList } = require("./modules/proxylib");
+const { MCClientsList } = require("./modules/client");
 
-const utils = require("./modules/utils")
-
+require("./modules/utils")
+require("./modules/proxylib")
+require("./modules/client")
 
 const proxy_list = fs.readFileSync(`./proxies.txt`, 'utf-8')
 
-const namesdb = fs.readFileSync(config.generate_offlines.gen_fn, "utf-8")
-
-var api_delay = 10000
-var proxies_list = proxy_list.split(/\r?\n/)
 
 
-var clients_ctr = 0
-//hashmap abuser
-var proxies = {}
-var clients = {}
-var proxies_req_data = undefined
+const api_delay = 1000
+//var proxies_list = proxy_list.split(/\r?\n/)
+
+
+
+var proxiesList = new ProxiesList()
+var clientsList = new MCClientsList(proxiesList)
+
 
 var names = []
 
@@ -38,21 +40,16 @@ var proxy_check_targtime = 0
 
 
 
-function GenName()
-{
-    name_base = namesdb[RandInt(0, namesdb.length - 1)];
-    return name_base + RandInt(0, 999999).toString()
-}
 
 
 
 
 
-ProxyCheckTimer = new Timer(config.proxy_api.check_delay)
-ProxyAPITimer = new Timer(api_delay)
 
 
 
+
+/*
 //Not useful unless using the shit version of the https thing
 function GetQueryString(base, params)
 {
@@ -69,20 +66,7 @@ function GetQueryString(base, params)
     return s.substring(0, s.length - 1);
 
 }
-//should make it count based but am too lazy
-async function GetProxies(num, time_avail, ip_dedup)
-{
-    print("Requesting more proxies...")
-
-    
-    
-    print("Proxies after request: ")
-    print(proxies)
-    
-    
-}
-
-
+*/
 
 //not useful because proxies can be checked with ttl
 function CheckProxy(ip, port) {
@@ -104,93 +88,36 @@ function CheckProxy(ip, port) {
   })
 }
 
-
-
-
-
-async function UpdateProxies()
+function AddProxies()
 {
-
-    if(ProxyCheckTimer.Check())
+    let curr_n = proxiesList.GetNum()
+    if(curr_n >= config.proxy_api.target_num)
     {
-        ProxyCheckTimer.Reset()
-
+        return;
     }
-    
+    let get_count = config.proxy_api.target_num - curr_n
 
-    
-    //If not enough proxies
-    let active_proxies = Object.keys(proxies).length;
-    if(active_proxies < config.proxy_api.min)
+    get_count = get_count > 200 ? 200 : get_count
+    proxiesList.GetFromAPI(config.proxy_api.url, config.proxy_api.token, get_count, 1)
+}
+
+
+Timers = 
+{
+    Proxy : 
     {
-        print("Current number of proxies is " + active_proxies + " which is less than the minimum amount of " + config.proxy_api.min.toString())
-
-        //If no api cooldown
-        if(ProxyAPITimer.Check())
-        {
-            ProxyAPITimer.Reset()
-            print("Calling GetProxies")
-            await GetProxies(100,1,1);
-            print("Finished requesting new proxies.")
-
-        }
-        else
-        {
-            print("Request on cooldown. The last request could still be unfinished.")
-        }
-        
+        Filter : new Timer(5000),
+        API : new Timer(api_delay),
+    },
+    Client :
+    {
+        WriteNames : new Timer(60000),
+        Update : new Timer(1000),
+        Create : new Timer(config.connection_delay)
     }
 }
 
 
-async function UpdateClients()
-{
-    //Loops through each client
-    Object.keys(clients).forEach(function(k)
-    {
-        //Reconnect clients if they are offline
-        clients[k].MaintainClient()
-
-        //Delete client if marked for deletion
-        if(clients[k].destroyClient)
-        {
-            //Disconnect client first
-            clients[k].Disconnect()
-            //Delete client
-            delete clients[k]
-        }
-    })
-    let active_clients = Object.keys(clients).length;
-    if(active_clients < config.num_accounts.min)
-    {
-        let clients_to_gen = config.num_accounts.min - active_clients
-        print("Current number of clients is " + active_clients + " which is less than the minimum amount of " + config.num_accounts.min.toString())
-        //If there are still usable proxies
-        if(GetValidProxy() != null)
-        {
-            print("Generating " + clients_to_gen.toString() + " clients...")
-            for(let i = 0; i < clients_to_gen; i++)
-            {
-                //Generate new offline name for client(cracked server only)
-                let newName = GenName()
-                //Create a new client instance
-                clients[newName] = new MCClient(newName, undefined, GetValidProxy())
-                //Call the above client's init function thing
-                clients[newName].Run()
-            }
-        }
-        else
-        {
-            print("Failed to generate clients. Insufficient amount of proxies.")
-        }
-        
-        
-    }
-    
-}
-
-ProxyUpdateTimer = new Timer(5000)
-ClientUpdateTimer = new Timer(5000)
 
 async function main()
 {
@@ -198,15 +125,27 @@ async function main()
     await GetProxies(10,1,0)
     while(1)
     {
-        if(ProxyUpdateTimer.Check())
+        if(Timers.Proxy.Filter.CheckRS())
         {
-            ProxyUpdateTimer.Reset()
-            await UpdateProxies();
+            proxiesList.FilterAllProxies();
         }
-        if(ClientUpdateTimer.Check())
+        if(Timers.Proxy.API.CheckRS())
         {
-            ClientUpdateTimer.Reset()
-            await UpdateClients();
+            AddProxies()
+        }
+
+        if(Timers.Client.WriteNames.CheckRS())
+        {
+            clientsList.WriteNameHist()
+        }  
+        if(Timers.Client.Update.CheckRS())
+        {
+            clientsList.UpdateClients()
+        }
+
+        if(Timers.Client.Create.CheckRS())
+        {
+            clientsList.CreateClients()
         }
 
         

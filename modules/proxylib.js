@@ -66,6 +66,9 @@ export function ProxiesList()
                 
         }
     }
+    //Returns true if the proxy is usable
+    //Returns false otherwise
+    //Auto deletes unusable proxies
     this.FilterProxy = function(k)
     {
         if(this.proxies[k].NotAlive.Check())
@@ -87,10 +90,10 @@ export function ProxiesList()
         //Proxy is valid if none of the above matches
         return true;
     }
+
     //Returns a valid proxy 
     //Returns nothing if none is found
-    //Auto deletes unusable proxies
-    this.GetValidProxy = function(cfg)
+    this.GetValidProxy = function()
     {
         keys = Object.keys(this.proxies)
         //Iterate through all proxies
@@ -108,10 +111,33 @@ export function ProxiesList()
         //If no proxies are available
         return undefined;
     }
+    //Returns number of vacant proxies
+    this.GetVacantProxyCount = function()
+    {
+        ctr = 0
+        keys = Object.keys(this.proxies)
+        //Iterate through all proxies
+        for(let i = 0; i < keys.length; i++)
+        {
+            let k = keys[i]
 
+            ctr += this.FilterProxy(k)
+
+            
+        }
+
+        return ctr;
+    }
+
+    //Deletes all unusable proxies from list
     this.FilterAllProxies = function()
     {
-        Object.keys(proxies).forEach(this.FilterProxy(k));
+        Object.keys(this.proxies).forEach(this.FilterProxy(k));
+    }
+
+    this.GetNum = function()
+    {
+        return Object.keys(this.proxies).length
     }
 
 

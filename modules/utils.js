@@ -42,4 +42,14 @@ export function Timer(interval)
     {
         this.targtime = GetTime() + this.interval
     }
+    
+    this.CheckRS = function()
+    {
+        if(this.Check())
+        {
+            this.Reset()
+            return true;
+        }
+        return 0;
+    }
 }

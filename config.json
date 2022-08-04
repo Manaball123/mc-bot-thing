@@ -42,8 +42,7 @@
     "enabled" : true,
     "url" : "http://api.sgxz.cn:12080/getip",
     "token" : "d4297ad34d2c4c04757d28d802859ea1",
-    "min" : 200,
-    "max" : 300,
+    "target_num" : 500,
     "check_delay" : 1024
   },
   "reconnect" :
@@ -53,11 +52,10 @@
     "delay" : 3200
   },
 
-  "num_accounts" :
-  {
-    "min" : 100,
-    "max" : 200
-  },
+
+  "target_num_accounts" : 200,
+  "num_accounts_per_connect" : 10,
+  "connection_delay" : 1000,
   
 
 

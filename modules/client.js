@@ -1,15 +1,25 @@
-import { Timer } from "./utils";
+import { GetTime, Timer } from "./utils";
 
 
 const mc = require("minecraft-protocol");
 const socks = require('socks').SocksClient
 const ProxyAgent = require('proxy-agent')
+const config = require("../config.json")
+const fs = require("fs")
+const namesdb = fs.readFileSync(config.generate_offlines.gen_fn, "utf-8")
+
 require("./utils")
 require("./proxylib")
 
 
+function GenName()
+{
+    name_base = namesdb[RandInt(0, namesdb.length - 1)];
+    return name_base + RandInt(0, 999999).toString()
+}
+
 //Client wrapper
-export function MCClient(name, pw, proxy)
+function MCClient(name, pw, proxy)
 {
     //If the client is disconnected from the server
     this.disconnected = true;
@@ -177,9 +187,81 @@ export function MCClient(name, pw, proxy)
 }
 
 
-export function MCClientList()
+export function MCClientsList(proxyL)
 {
+    this.clients = {}
+    this.names_hist = []
+    this.proxyList = proxyL
+    this.CreateClient = function(name, pw, proxy)
+    {
+        this.clients[name] = new MCClient(name, pw, proxy);
+    }
+
+    this.DeleteMarkedClient = function(k)
+    {
+        if(this.clients[k].destroyClient)
+        {
+            this.names_hist.push(k)
+            delete this.clients[k];
+        }
+
+    }
+
     
+    this.UpdateClients = function()
+    {
+        //Loops through each client
+        Object.keys(clients).forEach(function(k)
+        {
+            //Maintains each client
+            clients[k].MaintainClient()
+
+            //Delete if marked for deletion
+            DeleteMarkedClient(k);
+        })
+    }
+    //Does not verify proxy count
+    this.AddNewClients = function(n)
+    {
+        vacantProxies = this.proxyList.GetVacantProxyCount();
+
+        print("Generating " + n.toString() + " clients...")
+        for(let i = 0; i < n; i++)
+        {
+            //Generate new offline name for client(cracked server only)
+            let newName = GenName()
+            //Create a new client instance 
+            this.clients[newName] = new MCClient(newName, undefined, this.proxyList.GetValidProxy())
+            //Call the above client's init function thing
+            this.clients[newName].Run()
+        }
+    }
+
+    this.CreateClients = function()
+    {
+        
+        let active_clients = Object.keys(this.clients);
+        if(config.target_num_accounts >= active_clients)
+        {
+            return;
+        }
+        let proxy_count = this.proxyList.GetVacantProxyCount()
+        if(proxy_count <= 0)
+        {
+            print("Not enough proxies")
+            return;
+        }
+        let create_num = (config.target_num_accounts - active_clients)
+        create_num = create_num > config.target_num_accounts ? config.target_num_accounts : create_num;
+        create_num = create_num > proxy_count ? proxy_count : create_num;
+        this.AddNewClients(create_num);
+    }
+
+    this.WriteNameHist = function()
+    {
+        fs.WriteFileSync("../accs_hist/" + GetTime().toString() + ".txt" , this.names_hist.toString())
+        this.names_hist = []
+    }
 }
 
 
