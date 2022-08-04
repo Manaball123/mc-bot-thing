@@ -5,7 +5,7 @@
     "mass_register" : 
     {
       "enabled" : true,
-
+      
       "reg_msg" : "/reg Mana_on_top123 Mana_on_top123",
       "max_on_ip" : 2
     },
@@ -29,7 +29,7 @@
   "max_accs_per_proxy" : 2,
   "maxattemptsperproxy": 2,
   "auth" : "offline",
-  "generate-offlines" : 
+  "generate_offlines" : 
   {
     "enabled" : true,
     "gen_fn" : "namesdb.txt",
@@ -40,7 +40,8 @@
   "proxy_api" :
   {
     "enabled" : true,
-    "url" : "http://api.sgxz.cn:12080/getip?token=7ad4ad8b6cc643b5490ed06d0d6453fb&protocol=SOCKS&num=200&result_format=JSON&separator=%5Cn&ip_dedup=1&time_avail=1",
+    "url" : "http://api.sgxz.cn:12080/getip",
+    "token" : "7ad4ad8b6cc643b5490ed06d0d6453fb",
     "min" : 200,
     "max" : 300,
     "check_delay" : 1024

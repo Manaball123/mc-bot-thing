@@ -1,20 +1,21 @@
-const snekfetch = require("snekfetch")
-const mineflayer = require("mineflayer")
+
 const mc = require("minecraft-protocol");
 const socks = require('socks').SocksClient
 const ProxyAgent = require('proxy-agent')
 
 const config = require("./config.json")
 const fs = require("fs");
-const request = require('request');
-const Agent = require('socks5-http-client/lib/Agent');
+const https = require('https');
+const axios = require('axios').default;
+const url = require('node:url');
+const { rawListeners } = require("process");
 
 
 const proxy_list = fs.readFileSync(`./proxies.txt`, 'utf-8')
 
-const namesdb = fs.readFileSync(config.namesdb, "utf-8")
+const namesdb = fs.readFileSync(config.generate_offlines.gen_fn, "utf-8")
 
-
+var api_delay = 1000
 var proxies_list = proxy_list.split(/\r?\n/)
 
 var proxies_ctr = 0
@@ -24,6 +25,7 @@ var clients_ctr = 0
 //hashmap abuser
 var proxies = {}
 var clients = {}
+var proxies_req_data = undefined
 
 var names = []
 
@@ -32,6 +34,8 @@ var used_names = []
 var proxy_check_targtime = 0
 
 dateObj = new Date();
+
+
 function GetTime()
 {
     return dateObj.getTime();
@@ -44,21 +48,50 @@ function RandInt(min, max)
 
 function GenName()
 {
-    name_base = namesdb[RandInt(0, namesdb.length() - 1)];
+    name_base = namesdb[RandInt(0, namesdb.length - 1)];
     return name_base + RandInt(0, 999999).toString()
 }
 
+//Timer class
+function Timer(interval)
+{
+    this.interval = interval
+    this.targtime = GetTime() + this.interval
+    
+    this.Check = function()
+    {
+        if(GetTime() < this.targtime)
+        {
+            
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+    this.Reset = function()
+    {
+        this.targtime = GetTime() + this.interval
+    }
+}
+
+
+ProxyCheckTimer = new Timer(config.proxy_api.check_delay)
+ProxyAPITimer = new Timer(1024)
+
 //Proxy class
 
-function Proxy(host, port, user, pass)
-{
-    this.host = host
-    this.port = port
-    if(user != null)
+function Proxy(cfg)
+{   
+
+    this.host = cfg.host
+    this.port = cfg.port
+    if(cfg.user != undefined)
     {
-        this.user = user
-        this.pass = pass
+        this.user = cfg.user
+        this.pass = cfg.pass
     }
+    this.termination_est = cfg.ttl * 1000 + GetTime()
     //Number of connections
     this.connections = 0
     //Amount of times registered
@@ -176,33 +209,97 @@ function MCClient(name, pw, proxy)
     
     
 }
-//should make it count based but am too lazy
-function GetProxies(n)
+function GetQueryString(base, params)
 {
-    res = request(config.proxy_api.url)
-    res.content.data
+    var s = base
+    s += "?"
+    Object.keys(params).forEach(function(k)
+    {
+        s += k
+        s += "="
+        s += params[k].toString()
+        s += "&"
+
+    })
+    return s.substring(0, s.length - 1);
+
+}
+//should make it count based but am too lazy
+async function GetProxies(num, time_avail, ip_dedup)
+{
+    console.log("Requesting more proxies...")
+    let data = {}
+    axios
+    .get(config.proxy_api.url,
+        {
+            params : 
+            
+            {
+                'token': config.proxy_api.token,
+                'num': num,
+                'protocol': "SOCKS5",
+                'time_avail': time_avail,
+                'result_format': 'JSON',
+                'ip_dedup': (ip_dedup ? 1 : 0)
+            }
+            
+    })
+    .then(function (response) {
+        console.log("resp: ")
+        console.log(response);
+        proxies_req_data = response.data.data
+      })
+      .catch(function (error) {
+        console.log(error);
+      })
+      .then(function () {
+        
+      });  
+      
+    
+}
+
+function GetProxiesSynced(num,time_avail,ip_dedup)
+{
+
+    GetProxies(num, time_avail, ip_dedup)
+    while(proxies_req_data == undefined)
+    {
+        
+    }
+
+    for(let i in proxies_req_data)
+    {
+
+        proxies[proxies_req_data[i]["host"]] = new Proxy({
+            host : proxies_req_data[i]["host"], 
+            port : proxies_req_data[i]["port"],
+            ttl : proxies_req_data[i]["ttl"]
+        })
+        
+    }
+    proxies_req_data = undefined
 }
 function CheckProxy(ip, port) {
 
-    request("http://" + ip + port.toString() , function (err, res) {
-            if (err) 
+   axios
+  .get()
+  const options = {
+    hostname: "http://" + ip,
+    port: port,
+    method: 'GET',
+  };
+  
+  const req = https.request(options, function(res){
+    if(res.statusCode == 200)
+    {
+        return true
+    }
+    return false
+  })
+  
 
-            {
-                return false;
-            } 
-            else if (res.statusCode != 200) 
-            {
-                return false;
-                
-            } 
-            else 
-            {
-                return true
-            }
-
-        });
 }
-
 function GetValidProxy()
 {
     Object.keys(proxies).forEach(function(k)
@@ -217,80 +314,67 @@ function GetValidProxy()
         
         
     })
+    //If no proxies are available
+    return null
 }
 
 function UpdateProxies()
 {
 
-    Object.keys(proxies).forEach(function(k)
+    if(ProxyCheckTimer.Check())
     {
-        //If used more than twice
-        if(config.mode.mass_register.enabled)
+        ProxyCheckTimer.Reset()
+        Object.keys(proxies).forEach(function(k)
         {
-            if(config.mode.mass_register.max_on_ip >= proxies[k].reg_amount)
+            //If surpassed alive time
+            if(proxies[k].termination_est <= GetTime())
             {
-                delete proxies[k]
-            }
-        }
-        
-        //If proxy is invalid
-        else if(proxy_check_targtime <= GetTime())
-        {
-            if(!CheckProxy(proxies[k].ip, proxies[k].port))
-            {
-                
                 delete proxies[k];
-
             }
-        }
-        
 
-    })
-    if(proxy_check_targtime <= GetTime())
-    {
-        proxy_check_targtime= GetTime() + config.proxy_api.check_delay;
+            //If used more than twice
+            if(config.mode.mass_register.enabled)
+            {
+                if(config.mode.mass_register.max_on_ip >= proxies[k].reg_amount)
+                {
+                    delete proxies[k]
+                }
+            }
+            
+            //Edge case prob dont have to fix but
+            //if proxy is invalid
+            else if(proxy_check_targtime <= GetTime())
+            {
+                if(!CheckProxy(proxies[k].ip, proxies[k].port))
+                {
+                    
+                    delete proxies[k];
+
+                }
+            }
+            
+
+        })
     }
     
+
+    
     //If not enough proxies
-    let active_proxies = Object.keys(proxies).length();
-    while(active_proxies < config.proxy_api.min)
+    let active_proxies = Object.keys(proxies).length;
+    if(active_proxies < config.proxy_api.min)
     {
-        p = GetProxies(200);
-        for(let i in p)
+        if(ProxyAPITimer.Check())
         {
-            if(CheckProxy(p[i]["host"], p[i]["port"]))
-            {
-                proxies[p[i]["host"]] = new Proxy(p[i]["host"], p[i]["port"])
-            }
+            ProxyAPITimer.Reset()
+            console.log("Current number of proxies is " + active_proxies + " which is less than the minimum amount of " + config.proxy_api.min.toString())
+            p = GetProxies(100,1,1);
+
         }
+        
     }
 }
 
-/*
 
-if (config.altening) {
-    alts = []
-    setInterval(() => {
-        snekfetch.get(`http://api.thealtening.com/v1/generate?token=${config.altening_token}&info=true`).then(n => {
-            if (!alts.includes(n.body.token)) {
-                run(n.body.token, "a")
-                alts.push(n.body.token)
-            }
-        });
-    }, config.loginintervalms)
-} else {
-    fs.readFile("accounts.txt", 'utf8', function (err, data) {
-        if (err) throw err;
-        const lines = data.split(/\r?\n/);
-        setInterval(() => {
-            if (lines[0]) {
-                const line = lines.pop()
-                run(line.split(":")[0], line.split(":")[1])
-            }
-        }, config.loginintervalms)
-    });
-}
-*/
 function UpdateClients()
 {
     Object.keys(clients).forEach(function(k)
@@ -300,22 +384,55 @@ function UpdateClients()
             delete clients[k]
         }
     })
-    if(clients.length < config.num_accounts.min)
+    let active_clients = Object.keys(clients).length;
+    if(active_clients < config.num_accounts.min)
     {
-        newName = GenName()
+        let clients_to_gen = config.num_accounts.min - active_clients
+        console.log("Current number of clients is " + active_clients + " which is less than the minimum amount of " + config.num_accounts.min.toString())
         
-        clients[newName] = new MCClient(newName, config.mass_register.password, GetValidProxy())
+        if(GetValidProxy() != null)
+        {
+            console.log("Generating " + clients_to_gen.toString() + " clients...")
+            for(let i = 0; i < clients_to_gen; i++)
+            {
+                let newName = GenName()
+                clients[newName] = new MCClient(newName, undefined, GetValidProxy())
+            }
+        }
+        else
+        {
+            console.log("Insufficient amount of proxies.")
+        }
+        
+        
     }
     
 }
 
-
+ProxyUpdateTimer = new Timer(1000)
+ClientUpdateTimer = new Timer(1000)
 
 function main()
 {
+    console.log("Starting main function")
     while(1)
     {
-        UpdateClients()
-        UpdateProxies()
+        if(ProxyUpdateTimer.Check())
+        {
+            ProxyUpdateTimer.Reset()
+            UpdateProxies()
+        }
+        if(ClientUpdateTimer.Check())
+        {
+            ClientUpdateTimer.Reset()
+            UpdateClients()
+        }
+        
     }
 }
+var p = {}
+p = GetProxiesSynced(1,1,0)
+console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+console.log(p)
+//main()
+//
