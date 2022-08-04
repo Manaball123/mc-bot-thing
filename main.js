@@ -94,7 +94,7 @@ function Proxy(cfg)
         this.user = cfg.user
         this.pass = cfg.pass
     }
-    this.termination_est = cfg.ttl * 1000 + GetTime()
+    this.AliveTimer = new Timer(cfg.ttl * 1000)
     //Number of connections
     this.connections = 0
     //Amount of times registered
@@ -105,14 +105,25 @@ function Proxy(cfg)
 
 function MCClient(name, pw, proxy)
 {
-    this.disconnected = false;
+    //If the client is disconnected from the server
+    this.disconnected = true;
+    
+    //If marked for deletion(client is no longer useful, i.e. after starter resources has been used up)
     this.destroyClient = false;
-    this.targetReconTime = 0;
+    
+    //IGN of client
     this.name = name;
+
+    //Timer for chat cooldown
     this.ChatTimer = new Timer(config.chat_cooldown);
+
+    //Timer for reconnect throttling delay
     this.ReconnectTimer = new Timer(config.reconnect.delay)
+
+    //Queue for chat messages to be sent
     this.msgQueue = []
 
+    //Initialize the MC client
     this.client = mc.createClient({
         host: config.ip,           // optional
         port: config.port,         // optional
@@ -162,22 +173,37 @@ function MCClient(name, pw, proxy)
     {
         this.msgQueue.push(msg)
     }
-    this.Reconnect = function()
+    this.Connect = function()
     {
-        if(this.disconnected)
-        {
-            this.client.connect(config.port, config.host);
-        }
+        this.client.connect(config.port, config.host);
         
     }
-    this.MaintainClient = function()
+    this.AutoReconnect = function()
     {
+        //If not disconnected then break
+        if(!this.disconnected)
+        {
+            return;
+        }
+        
+        //If exceeded delay
         if(this.ReconnectTimer.Check())
         {
             this.ReconnectTimer.Reset()
-            this.Reconnect()
+            this.Connect();
         }
+
+
     }
+    //Client looping stuff idk
+    this.MaintainClient = function()
+    {
+
+        this.AutoReconnect()
+        
+    }
+
+    //Run when client instance is created
     this.Run = function()
     {
         this.QueueMessage(config.mode.mass_register.reg_msg);
@@ -205,29 +231,28 @@ function MCClient(name, pw, proxy)
                 this.destroyClient = true
             }
         })
+        //On client connect
         this.client.on('connect', function () {
             console.info('connected')
             
+            this.disconnected = false
+            //Update proxy counters
             this.proxy.connections++;
             this.proxy.reg_amount++;
-            this.destroyClient = true;
+            
 
         })
         this.client.on('disconnect', function (packet) {
-            print('disconnected: ' + packet.reason)
+            print(this.name +' disconnected: ' + packet.reason)
         })
         this.client.on('end', function () {
-            print('Connection lost')
+            print(this.name + ' Lost connection')
             this.disconnected = true
-            if(!this.destroyClient)
-            {
-                this.targetReconTime = GetTime() + config.reconnect.delay
-            }
             
             
         })
         this.client.on('message', function (packet) {
-            print(packet.toString())
+            print(this.name + " Recieved message: " + packet.toString())
         })
         
     }
@@ -236,6 +261,8 @@ function MCClient(name, pw, proxy)
     
     
 }
+
+//Not useful unless using the shit version of the https thing
 function GetQueryString(base, params)
 {
     var s = base
@@ -259,7 +286,6 @@ async function GetProxies(num, time_avail, ip_dedup)
     let res = await axios.get(config.proxy_api.url,
         {
             params : 
-            
             {
                 'token': config.proxy_api.token,
                 'num': num,
@@ -300,7 +326,7 @@ async function GetProxies(num, time_avail, ip_dedup)
 
 
 
-
+//not useful because proxies can be checked with ttl
 function CheckProxy(ip, port) {
 
    axios
@@ -321,26 +347,42 @@ function CheckProxy(ip, port) {
   
 
 }
+//Returns a valid proxy 
+//Returns nothing if none is found
 function GetValidProxy()
 {
     //(proxies)
     keys = Object.keys(proxies)
+    //Iterate through all proxies
     for(let i = 0; i < keys.length; i++)
     {
         let k = keys[i]
-        if(proxies[k].reg_amount < config.mode.mass_register.max_on_ip)
+
+
+        //If surpassed alive time
+        if(proxies[k].AliveTimer.Check())
         {
-            //print('hji')
-            if(proxies[k].connections < config.max_accs_per_proxy)
-            {
-                //print('helo')
-                return proxies[k]
-            }
+        
+            delete proxies[k];
         }
         else
         {
-            delete proxies[k]
+            //If proxy isn't used for registeration on enough accounts
+            if(proxies[k].reg_amount < config.mode.mass_register.max_on_ip)
+            {
+                //If proxy can still have more connections
+                if(proxies[k].connections < config.max_accs_per_proxy)
+                {
+                    
+                    return proxies[k]
+                }
+            }
+            else
+            {
+                delete proxies[k]
+            }
         }
+        
     }
 
     //If no proxies are available
@@ -356,9 +398,9 @@ async function UpdateProxies()
         Object.keys(proxies).forEach(function(k)
         {
             //If surpassed alive time
-            if(proxies[k].termination_est <= GetTime())
+            if(proxies[k].AliveTimer.Check())
             {
-                //print(k + "deleted")
+
                 delete proxies[k];
             }
 
@@ -415,9 +457,13 @@ async function UpdateProxies()
 
 async function UpdateClients()
 {
+    //Loops through each client
     Object.keys(clients).forEach(function(k)
     {
+        //Reconnect clients if they are offline
         clients[k].MaintainClient()
+
+        //Delete client if marked for deletion
         if(clients[k].destroyClient)
         {
             delete clients[k]
