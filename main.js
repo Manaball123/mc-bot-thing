@@ -178,6 +178,10 @@ function MCClient(name, pw, proxy)
         this.client.connect(config.port, config.host);
         
     }
+    this.Disconnect = function()
+    {
+        this.client.end("lol")
+    }
     this.AutoReconnect = function()
     {
         //If not disconnected then break
@@ -248,6 +252,7 @@ function MCClient(name, pw, proxy)
         this.client.on('end', function () {
             print(this.name + ' Lost connection')
             this.disconnected = true
+            this.proxy.connections--;
             
             
         })
@@ -404,9 +409,10 @@ async function UpdateProxies()
                 delete proxies[k];
             }
 
-            //If used more than twice
+            //If used more than max register limit
             else if(config.mode.mass_register.enabled)
             {
+
                 if(config.mode.mass_register.max_on_ip <= proxies[k].reg_amount)
                 {
                     //print(k + "deleted")
@@ -438,6 +444,8 @@ async function UpdateProxies()
     if(active_proxies < config.proxy_api.min)
     {
         print("Current number of proxies is " + active_proxies + " which is less than the minimum amount of " + config.proxy_api.min.toString())
+
+        //If no api cooldown
         if(ProxyAPITimer.Check())
         {
             ProxyAPITimer.Reset()
@@ -466,6 +474,9 @@ async function UpdateClients()
         //Delete client if marked for deletion
         if(clients[k].destroyClient)
         {
+            //Disconnect client first
+            clients[k].Disconnect()
+            //Delete client
             delete clients[k]
         }
     })
@@ -474,14 +485,17 @@ async function UpdateClients()
     {
         let clients_to_gen = config.num_accounts.min - active_clients
         print("Current number of clients is " + active_clients + " which is less than the minimum amount of " + config.num_accounts.min.toString())
-        
+        //If there are still usable proxies
         if(GetValidProxy() != null)
         {
             print("Generating " + clients_to_gen.toString() + " clients...")
             for(let i = 0; i < clients_to_gen; i++)
             {
+                //Generate new offline name for client(cracked server only)
                 let newName = GenName()
+                //Create a new client instance
                 clients[newName] = new MCClient(newName, undefined, GetValidProxy())
+                //Call the above client's init function thing
                 clients[newName].Run()
             }
         }
