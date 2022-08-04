@@ -310,7 +310,7 @@ async function GetProxies(num, time_avail, ip_dedup)
     print(res)
     print(res.data)
     print("Typeof res: ")
-    //print(typeof(res))
+    print(typeof res)
     
     var p = res.data.data
     for(let i = 0; i < p.length; i++)
