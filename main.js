@@ -123,8 +123,11 @@ function MCClient(name, pw, proxy)
     //Queue for chat messages to be sent
     this.msgQueue = []
 
+    this.proxy = proxy
+
     //Initialize the MC client
     print("Creating new client with name " + this.name)
+    /*
     this.client = mc.createClient({
         host: config.ip,           // optional
         port: config.port,         // optional
@@ -156,6 +159,35 @@ function MCClient(name, pw, proxy)
             })
        }
     })
+    */
+    this.client = mc.createClient({
+    connect: client => {
+      socks.createConnection({
+        proxy: {
+          host: this.proxy.host,
+          port: this.proxy.port,
+          type: 5
+        },
+        command: 'connect',
+        destination: {
+          host: config.ip,
+          port: config.port
+        }
+      }, (err, info) => {
+        if (err) {
+          console.log(err)
+          return
+        }
+  
+        client.setSocket(info.socket)
+        client.emit('connect')
+      })
+    },
+    agent: new ProxyAgent({ protocol: 'socks5:', host: this.proxy.host, port: this.proxy.port }),
+    username: this.name,
+    //password: process.argv[7]
+  })
+    
     print(this.name + " Created.")
     this.SendMessage = function()
     {
