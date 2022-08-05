@@ -136,8 +136,8 @@ function MCClient(name, pw, proxy)
     this.Run = function()
     {
         print("Initializing client " + name)
-        this.QueueMessage(config.mode.mass_register.reg_msg);
-        this.QueueMessage(config.mode.pay.pay_msg);
+        this.QueueMessage(config.mass_register.reg_msg);
+        this.QueueMessage(config.pay.pay_msg);
         this.ChatTimer.Reset()
         //I hope this is called very frequently
         //If not im fucked lol
@@ -228,7 +228,7 @@ function MCClientsList(proxyL)
     //Does not verify proxy count
     this.AddNewClients = function(n)
     {
-        vacantProxies = this.proxyList.GetVacantProxyCount();
+        //vacantProxies = this.proxyList.GetVacantProxyCount();
 
         print("Generating " + n.toString() + " clients...")
         for(let i = 0; i < n; i++)
@@ -245,8 +245,9 @@ function MCClientsList(proxyL)
     this.CreateClients = function()
     {
         
-        let active_clients = Object.keys(this.clients);
-        if(config.target_num_accounts >= active_clients)
+        let active_clients = Object.keys(this.clients).length;
+        print("Current number of clients: " + active_clients.toString())
+        if(config.target_num_accounts <= active_clients)
         {
             return;
         }
