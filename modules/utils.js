@@ -1,19 +1,19 @@
 
 
 
-export function print(a)
+function print(a)
 {
     console.log(a)
 }
 
 
-export function RandInt(min, max)
+function RandInt(min, max)
 {
     return Math.floor(Math.random() * max) - min;
 }
 
 
-export function GetTime()
+function GetTime()
 { 
     var dateObj = new Date();
     return dateObj.getTime();
@@ -21,7 +21,7 @@ export function GetTime()
 
 
 //Timer class
-export function Timer(interval)
+function Timer(interval)
 {
     this.interval = interval
     this.targtime = GetTime() + this.interval
@@ -53,3 +53,5 @@ export function Timer(interval)
         return 0;
     }
 }
+
+module.exports = {print, RandInt, GetTime, Timer}

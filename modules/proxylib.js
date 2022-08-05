@@ -1,6 +1,7 @@
 
 const axios = require('axios').default;
 const config = require("../config.json")
+const { GetTime, Timer ,print, RandInt} = require("./utils");
 
 //Note that none of these are concise abstractions
 //Just making this so I have cleaner code
@@ -24,7 +25,7 @@ function Proxy(cfg)
 }
 
 //Proxy list class
-export function ProxiesList()
+function ProxiesList()
 {
     this.proxies = {}
 
@@ -121,7 +122,7 @@ export function ProxiesList()
         {
             let k = keys[i]
 
-            ctr += this.FilterProxy(k)
+            ctr += this.FilterProxy(k);
 
             
         }
@@ -132,7 +133,13 @@ export function ProxiesList()
     //Deletes all unusable proxies from list
     this.FilterAllProxies = function()
     {
-        Object.keys(this.proxies).forEach(this.FilterProxy(k));
+        keys = Object.keys(this.proxies)
+        for(let i = 0; i < keys.length; i++)
+        {
+            let k = keys[i]
+
+            this.FilterProxy(k);
+        }
     }
 
     this.GetNum = function()
@@ -143,3 +150,6 @@ export function ProxiesList()
 
 }
 
+
+
+module.exports = {ProxiesList}

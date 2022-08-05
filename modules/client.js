@@ -1,16 +1,20 @@
-import { GetTime, Timer } from "./utils";
 
 
 const mc = require("minecraft-protocol");
 const socks = require('socks').SocksClient
 const ProxyAgent = require('proxy-agent')
 const config = require("../config.json")
-const fs = require("fs")
+const fs = require("fs");
+const { GetTime, Timer ,print, RandInt} = require("./utils");
 const namesraw = fs.readFileSync(config.generate_offlines.gen_fn, "utf-8")
 const namesdb = namesraw.split(/\r?\n/)
 
-require("./utils")
+
+
+
 require("./proxylib")
+
+
 
 
 function GenName()
@@ -188,7 +192,7 @@ function MCClient(name, pw, proxy)
 }
 
 
-export function MCClientsList(proxyL)
+function MCClientsList(proxyL)
 {
     this.clients = {}
     this.names_hist = []
@@ -212,10 +216,10 @@ export function MCClientsList(proxyL)
     this.UpdateClients = function()
     {
         //Loops through each client
-        Object.keys(clients).forEach(function(k)
+        Object.keys(this.clients).forEach(function(k)
         {
             //Maintains each client
-            clients[k].MaintainClient()
+            this.clients[k].MaintainClient()
 
             //Delete if marked for deletion
             DeleteMarkedClient(k);
@@ -255,6 +259,7 @@ export function MCClientsList(proxyL)
         let create_num = (config.target_num_accounts - active_clients)
         create_num = create_num > config.target_num_accounts ? config.target_num_accounts : create_num;
         create_num = create_num > proxy_count ? proxy_count : create_num;
+        print("Adding new clients... --- CLIENT")
         this.AddNewClients(create_num);
     }
 
@@ -265,5 +270,6 @@ export function MCClientsList(proxyL)
     }
 }
 
+module.exports = {MCClientsList};
 
 

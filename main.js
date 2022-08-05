@@ -1,7 +1,4 @@
 
-
-
-
 const config = require("./config.json")
 const fs = require("fs");
 const https = require('https');
@@ -11,13 +8,16 @@ const { Timer } = require("./modules/utils");
 const { ProxiesList } = require("./modules/proxylib");
 const { MCClientsList } = require("./modules/client");
 
-require("./modules/utils")
-require("./modules/proxylib")
-require("./modules/client")
+const utils = require("./modules/utils")
+const pl = require("./modules/proxylib")
+const cl = require("./modules/client")
 
 //const proxy_list = fs.readFileSync(`./proxies.txt`, 'utf-8')
-
-
+function print(a)
+{
+    console.log(a)
+}
+//var Timer = utils.Timer()
 
 const api_delay = 1000
 //var proxies_list = proxy_list.split(/\r?\n/)
@@ -68,7 +68,7 @@ function CheckProxy(ip, port) {
   })
 }
 
-function AddProxies()
+async function AddProxies()
 {
     let curr_n = proxiesList.GetNum()
     if(curr_n >= config.proxy_api.target_num)
@@ -77,8 +77,9 @@ function AddProxies()
     }
     let get_count = config.proxy_api.target_num - curr_n
 
-    get_count = get_count > 200 ? 200 : get_count
-    proxiesList.GetFromAPI(config.proxy_api.url, config.proxy_api.token, get_count, 1)
+    get_count = get_count > 10 ? 10 : get_count
+    print("Fetching proxies from API... --- PROXY")
+    await proxiesList.GetFromAPI(config.proxy_api.url, config.proxy_api.token, get_count, 1)
 }
 
 
@@ -102,30 +103,35 @@ Timers =
 async function main()
 {
     print("Starting main function")
-    await GetProxies(10,1,0)
+    //AddProxies();
     while(1)
     {
         if(Timers.Proxy.Filter.CheckRS())
         {
-            proxiesList.FilterAllProxies();
+            print("Updating proxies... --- PROXY");
+            await proxiesList.FilterAllProxies();
         }
         if(Timers.Proxy.API.CheckRS())
         {
-            AddProxies()
+            print("Calling AddProxies... --- PROXY");
+            await AddProxies();
         }
 
         if(Timers.Client.WriteNames.CheckRS())
         {
-            clientsList.WriteNameHist()
+            print("Writing names hist... --- CLIENT")
+            await clientsList.WriteNameHist()
         }  
         if(Timers.Client.Update.CheckRS())
         {
-            clientsList.UpdateClients()
+            print("Updating clients... --- CLIENT")
+            await clientsList.UpdateClients()
         }
 
         if(Timers.Client.Create.CheckRS())
         {
-            clientsList.CreateClients()
+            print("Calling CreateClients... --- CLIENT")
+            await clientsList.CreateClients()
         }
 
         
